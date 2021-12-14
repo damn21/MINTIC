@@ -4,7 +4,7 @@ const { generateAccessToken } = require('../services/jwt');
 const User = require('../models/user');
 const bcrypt = require("bcryptjs");
 const {authMiddleware} = require('../middleware/authMiddleware');
-
+const ApiError = require('../utils/ApiError');
 
 // Registro
 router.post("/register", async (req, res, next) => {
@@ -14,11 +14,11 @@ router.post("/register", async (req, res, next) => {
   
       // Validate user input
       if (!(email && password && name && username && passwordConfirmation)) {
-        res.status(400).json({message: "All input is required" });
+          throw new ApiError("All input is required",400);
       }
   
       if (password !== passwordConfirmation) {
-          res.status(400).json({ message: "Passwords do not match" });
+        throw new ApiError("Passwords do not match",400);
       }
   
       // Validamos la existencia del usuario en la base de datos
@@ -26,7 +26,7 @@ router.post("/register", async (req, res, next) => {
       console.log(oldUser);
   
       if (oldUser) {
-        return res.status(400).json({ message: "User Already Exist. Please Login" });
+        throw new ApiError("User Already Exist. Please Login",400);
       }
   
       //Encrypt user password
@@ -76,7 +76,7 @@ router.post("/login", async (req, res, next) => {
     }
 });
 
-router.get("/findAll",  (req, res, next) => {
+router.get("/findAll", authMiddleware, (req, res, next) => {
 
     User.find().exec()
     .then((docs) => {
