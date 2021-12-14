@@ -2,10 +2,9 @@ require("dotenv").config();
 require("./src/config/database").connect();
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-
+const { generateAccessToken } = require('./src/services/jwt');
 const User = require("./src/model/user");
-const auth = require("./src/middleware/auth");
+
 
 const app = express();
 
@@ -20,11 +19,11 @@ app.post("/register", async (req, res, next) => {
 
     // Validate user input
     if (!(email && password && name && username && passwordConfirmation)) {
-      res.status(400).send("All input is required");
+      res.status(400).json({message: "All input is required" });
     }
 
     if (password !== passwordConfirmation) {
-        res.status(400).send("Passwords do not match");
+        res.status(400).json({ message: "Passwords do not match" });
     }
 
     // Validamos la existencia del usuario en la base de datos
@@ -32,7 +31,7 @@ app.post("/register", async (req, res, next) => {
     console.log(oldUser);
 
     if (oldUser) {
-      return res.status(409).send("User Already Exist. Please Login");
+      return res.status(400).json({ message: "User Already Exist. Please Login" });
     }
 
     //Encrypt user password
@@ -47,18 +46,18 @@ app.post("/register", async (req, res, next) => {
     });
 
     // Creamos el token
-    const token = jwt.sign(
-      { user_id: user._id, email },
-      process.env.TOKEN_KEY,
-      {
-        expiresIn: "2h",
-      }
-    );
+    //const token = jwt.sign(
+    // { user_id: user._id, email },
+    //  process.env.JWT_SECRET,
+    //  {
+    //    expiresIn: "2h",
+    //  }
+    //);
     // Guardamos user token
-    user.token = token;
+    //user.token = token;
 
     // return new user
-    res.status(201).json(user);
+    res.status(200).json(user);
   } catch (err) {
     next(err);
     console.log(err);
@@ -69,44 +68,29 @@ app.post("/register", async (req, res, next) => {
 // Login
 app.post("/login", async (req, res, next) => {
 
-    // Our login logic starts here
   try {
     // Get user input
     const { email, password } = req.body;
 
     // Validate user input
     if (!(email && password)) {
-      res.status(400).send("All input is required");
+      res.status(400).json({message: "All input is required" } );
     }
     // Validate if user exist in our database
     const user = await User.findOne({ email });
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      // Create token
-      const token = jwt.sign(
-        { user_id: user._id, email },
-        process.env.TOKEN_KEY,
-        {
-          expiresIn: "2h",
-        }
-      );
 
-      // save user token
-      user.token = token;
-
-      // user
-      res.status(200).json(user);
+      const accessToken = generateAccessToken(user._id, user.email);
+      res.status(200).json({accessToken});
+    }else{
+      res.status(404).json({message: "User not found"});
     }
     
   } catch (err) {
     next(err);
     console.log(err);
   }
-  // Our register logic ends here
-});
-
-app.post("/welcome", auth, (req, res) => {
-    res.status(200).send("Welcome 🙌 ");
 });
 
 module.exports = app;
